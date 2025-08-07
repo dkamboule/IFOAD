@@ -11,11 +11,9 @@ class Application(tk.Tk):
         self.title("Gestion des Notes d'Étudiants")
         self.geometry("1000x700")
         self.gestion_notes = GestionNotes()
-        
         # Variables pour la sélection actuelle
         self.etudiant_selectionne = None
         self.note_selectionnee = None
-        
         # Ajout de données de test
         self.initialiser_donnees_test()
         
