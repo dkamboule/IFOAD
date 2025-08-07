@@ -20,6 +20,13 @@ class Application(tk.Tk):
         self.initialiser_donnees_test()
         
         self.creer_interface()
+        self.actualiser_toutes_vues()  # Nouvelle méthode pour tout actualiser
+    
+    def actualiser_toutes_vues(self):
+        """Met à jour toutes les listes et combobox"""
+        self.actualiser_liste_etudiants()
+        self.actualiser_combos_notes()
+        self.actualiser_liste_notes()
     
     def initialiser_donnees_test(self):
         # Ajout d'étudiants
@@ -180,32 +187,35 @@ class Application(tk.Tk):
         self.entry_departement.insert(0, self.etudiant_selectionne.departement)
     
     def ajouter_etudiant(self):
-        matricule = self.entry_matricule.get()
-        nom = self.entry_nom.get()
-        prenom = self.entry_prenom.get()
-        niveau = self.entry_niveau.get()
-        departement = self.entry_departement.get()
+        try:
+            # Récupération des valeurs du formulaire
+            matricule = self.entry_matricule.get()
+            nom = self.entry_nom.get()
+            prenom = self.entry_prenom.get()
+            niveau = self.entry_niveau.get()
+            departement = self.entry_departement.get()
+
+            # Validation des champs
+            if not all([matricule, nom, prenom, niveau, departement]):
+                raise ValueError("Tous les champs sont obligatoires")
+
+            # Vérification de l'unicité du matricule
+            if any(e.matricule == matricule for e in self.gestion_notes.etudiants):
+                raise ValueError("Un étudiant avec ce matricule existe déjà")
+
+            # Création et ajout du nouvel étudiant
+            nouvel_etudiant = Etudiant(matricule, nom, prenom, niveau, departement)
+            self.gestion_notes.ajouter_etudiant(nouvel_etudiant)
+            
+            # Réinitialisation et actualisation
+            self.effacer_formulaire_etudiant()
+            self.actualiser_toutes_vues()  # Actualise toutes les vues
+            
+            messagebox.showinfo("Succès", "Étudiant ajouté avec succès")
+
+        except Exception as e:
+            messagebox.showerror("Erreur", str(e))
         
-        if not all([matricule, nom, prenom, niveau, departement]):
-            messagebox.showerror("Erreur", "Tous les champs sont obligatoires")
-            return
-        
-        # Vérifier si l'étudiant existe déjà
-        if self.gestion_notes.rechercher_etudiant("matricule", matricule):
-            messagebox.showerror("Erreur", "Un étudiant avec ce matricule existe déjà")
-            return
-        
-        etudiant = Etudiant(matricule, nom, prenom, niveau, departement)
-        self.gestion_notes.ajouter_etudiant(etudiant)
-        
-        # Réinitialiser les champs
-        self.effacer_formulaire_etudiant()
-        
-        # Actualiser la liste
-        self.actualiser_liste_etudiants()
-        
-        messagebox.showinfo("Succès", "Étudiant ajouté avec succès")
-    
     def modifier_etudiant(self):
         if not self.etudiant_selectionne:
             messagebox.showerror("Erreur", "Aucun étudiant sélectionné")
@@ -394,68 +404,64 @@ class Application(tk.Tk):
             pass
     
     def actualiser_combos_notes(self):
-        # Mettre à jour la liste des étudiants
+        """Met à jour les ComboBox de l'onglet Notes"""
+        # Liste des étudiants formatée
         etudiants = [f"{e.matricule} - {e.nom} {e.prenom}" for e in self.gestion_notes.etudiants]
         self.combo_etudiant['values'] = etudiants
-        if etudiants:
+        
+        # Sélection du premier étudiant si la liste n'est pas vide
+        if etudiants and not self.combo_etudiant.get():
             self.combo_etudiant.current(0)
         
-        # Mettre à jour la liste des matières
+        # Liste des matières formatée
         matieres = [f"{m.code} - {m.nom}" for m in self.gestion_notes.matieres]
         self.combo_matiere['values'] = matieres
-        if matieres:
+        
+        # Sélection de la première matière si la liste n'est pas vide
+        if matieres and not self.combo_matiere.get():
             self.combo_matiere.current(0)
     
     def enregistrer_note(self):
-        # Récupérer les sélections
-        etudiant_str = self.combo_etudiant.get()
-        matiere_str = self.combo_matiere.get()
-        
-        if not etudiant_str or not matiere_str:
-            messagebox.showerror("Erreur", "Veuillez sélectionner un étudiant et une matière")
-            return
-        
-        # Récupérer l'étudiant et la matière
-        matricule = etudiant_str.split(" - ")[0]
-        code_matiere = matiere_str.split(" - ")[0]
-        
-        etudiant = next(e for e in self.gestion_notes.etudiants if e.matricule == matricule)
-        matiere = next(m for m in self.gestion_notes.matieres if m.code == code_matiere)
-        
-        # Récupérer les notes
         try:
+            # Vérification de la sélection d'un étudiant et d'une matière
+            etudiant_str = self.combo_etudiant.get()
+            matiere_str = self.combo_matiere.get()
+            
+            if not etudiant_str or not matiere_str:
+                raise ValueError("Veuillez sélectionner un étudiant et une matière")
+            
+            # Extraction du matricule et du code matière
+            matricule = etudiant_str.split(" - ")[0]
+            code_matiere = matiere_str.split(" - ")[0]
+            
+            # Récupération des objets correspondants
+            etudiant = next(e for e in self.gestion_notes.etudiants if e.matricule == matricule)
+            matiere = next(m for m in self.gestion_notes.matieres if m.code == code_matiere)
+            
+            # Validation des notes
             controle = float(self.entry_controle.get()) if self.entry_controle.get() else None
             tp = float(self.entry_tp.get()) if self.entry_tp.get() else None
             examen = float(self.entry_examen.get()) if self.entry_examen.get() else None
-        except ValueError:
-            messagebox.showerror("Erreur", "Les notes doivent être des nombres")
-            return
-        
-        # Vérifier que les notes sont entre 0 et 20
-        for note in [controle, tp, examen]:
-            if note is not None and (note < 0 or note > 20):
-                messagebox.showerror("Erreur", "Les notes doivent être entre 0 et 20")
-                return
-        
-        # Vérifier si la note existe déjà
-        note_existante = next((n for n in self.gestion_notes.notes 
-                             if n.etudiant.matricule == matricule and n.matiere.code == code_matiere), None)
-        
-        if note_existante:
-            messagebox.showerror("Erreur", "Une note existe déjà pour cet étudiant dans cette matière. Utilisez 'Modifier'.")
-            return
-        
-        # Créer et enregistrer la note
-        note = Note(etudiant, matiere, controle, tp, examen)
-        self.gestion_notes.enregistrer_note(note)
-        
-        # Réinitialiser les champs
-        self.effacer_formulaire_note()
-        
-        # Actualiser la liste
-        self.actualiser_liste_notes()
-        
-        messagebox.showinfo("Succès", "Note enregistrée avec succès")
+            
+            for note in [controle, tp, examen]:
+                if note is not None and not (0 <= note <= 20):
+                    raise ValueError("Les notes doivent être entre 0 et 20")
+            
+            # Création et enregistrement de la note
+            nouvelle_note = Note(etudiant, matiere, controle, tp, examen)
+            self.gestion_notes.enregistrer_note(nouvelle_note)
+            
+            # Réinitialisation et actualisation
+            self.effacer_formulaire_note()
+            self.actualiser_liste_notes()
+            
+            messagebox.showinfo("Succès", "Note enregistrée avec succès")
+            
+        except ValueError as ve:
+            messagebox.showerror("Erreur de valeur", str(ve))
+        except Exception as e:
+            messagebox.showerror("Erreur", f"Une erreur est survenue: {str(e)}")
+
     
     def modifier_note(self):
         if not self.note_selectionnee:
